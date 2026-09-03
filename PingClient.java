@@ -40,7 +40,8 @@ public class PingClient {
                     
                     byte[] dadosRecebidos = new byte[1024];
                     DatagramPacket receive = new DatagramPacket(dadosRecebidos, dadosRecebidos.length);
-            
+
+                    socket.setSoTimeout(1000);
                     socket.receive(receive);
                     printData(receive);
         
@@ -50,6 +51,7 @@ public class PingClient {
                     if (rtt > maximum) maximum = rtt;
                     somaRTT += rtt;
                     pacotesRecebidos++;
+                    count++;
         
                 } catch (SocketTimeoutException e) {
                     System.out.println("Ping " + count + ": Pacote perdido (Timeout)\n");
@@ -57,7 +59,7 @@ public class PingClient {
                     System.out.println("Erro inesperado: " + e.getMessage());
                 }
 
-                count++;
+                
 
                 if (count == 10) {
                     timer.cancel();
