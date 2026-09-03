@@ -1,13 +1,16 @@
 import java.io.*;
 import java.net.*;
-import java.util.*;
 
+/*
+ * Servidor para processar as requisições de Ping sobre UDP.
+ */
 public class PingClient {
     private static DatagramSocket socket;
 
     public static void main(String[] args) throws Exception {
+        // Obter o argumento da linha de comando.
         if (args.length != 2) {
-            System.out.println("Required arguments: host port");
+            System.out.println("Required arguments: host, port");
             return;
         }
         
@@ -15,73 +18,55 @@ public class PingClient {
         int port = Integer.parseInt(args[1]);
         
         
+        // Socket criado FORA do loop para não causar erro (BindException) na segunda mensagem
         socket = new DatagramSocket();
-
-        Timer timer = new Timer();
-
-        TimerTask repeatTask = new TimerTask() {
-            int count = 0;
-            int pacotesRecebidos = 0;
-            
-            double minimum = Double.MAX_VALUE;
-            double maximum = Double.MIN_VALUE;
-            double somaRTT = 0.0;
-
-            @Override
-            public void run() {
-                try {
-                    long timestamp = System.nanoTime();
-                    
-                    String mensagem = "PING " + count + " " + timestamp + "\r\n";
-                    byte[] dadosEnvio = mensagem.getBytes();
-                    
-                    DatagramPacket request = new DatagramPacket(dadosEnvio, dadosEnvio.length, host, port);
-                    socket.send(request);
-                    
-                    byte[] dadosRecebidos = new byte[1024];
-                    DatagramPacket receive = new DatagramPacket(dadosRecebidos, dadosRecebidos.length);
-            
-                    socket.receive(receive);
-                    printData(receive);
         
-                    double rtt = (System.nanoTime() - timestamp) / 1_000_000.0;
-                    
-                    if (rtt < minimum) minimum = rtt;
-                    if (rtt > maximum) maximum = rtt;
-                    somaRTT += rtt;
-                    pacotesRecebidos++;
-        
-                } catch (SocketTimeoutException e) {
-                    System.out.println("Ping " + count + ": Pacote perdido (Timeout)\n");
-                } catch (Exception e) {
-                    System.out.println("Erro inesperado: " + e.getMessage());
-                }
+        Double minimum = Double.MAX_VALUE, maximum = Double.MIN_VALUE;
+        Double mean = 0.0;
+        Integer count = 0;
 
+        for (Integer i = 0; i < 10; i++) {
+            byte[] dadosEnvio = new byte[1024];
+            byte[] dadosRecebidos = new byte[1024];
+            
+
+            Long timestamp = System.nanoTime();
+            String s = "PING " + i.toString() + " " + timestamp.toString();
+            dadosEnvio = s.getBytes();
+            // Criar um pacote de datagrama para comportar o pacote UDP de chegada.
+            DatagramPacket request = new DatagramPacket(dadosEnvio, dadosEnvio.length, host, port);
+            
+            // Bloquear até que o hospedeiro receba o pacote UDP.
+            socket.send(request);
+            DatagramPacket receive = new DatagramPacket(dadosRecebidos, dadosRecebidos.length);
+
+            try {
+                socket.setSoTimeout(1000);
+                socket.receive(receive);
+                printData(receive);
+
+                Double time = (System.nanoTime() - timestamp) / 1_000_000.0;
+                mean += time;
                 count++;
 
-                if (count == 10) {
-                    timer.cancel();
-                    
-                    System.out.println("--- Estatísticas do Ping UDP ---");
-                    System.out.println("Pacotes: Enviados = 10, Recebidos = " + pacotesRecebidos + 
-                                       ", Perdidos = " + (10 - pacotesRecebidos));
-                    
-                    if (pacotesRecebidos > 0) {
-                        double media = somaRTT / pacotesRecebidos;
-                        System.out.printf("RTT Mínimo: %.2f ms\n", minimum);
-                        System.out.printf("RTT Máximo: %.2f ms\n", maximum);
-                        System.out.printf("RTT Médio:  %.2f ms\n", media);
-                    }
-                    
-                    socket.close();
-                }
-            }
-        };
+                minimum = Double.min(minimum, time);
+                maximum = Double.max(maximum, time);
 
-        System.out.println("Iniciando PING para " + host.getHostAddress() + " na porta " + port);
-        
-        // Questão 2: Envia exatamente 1 Ping por segundo (delay=0, periodo=1000ms)
-        timer.schedule(repeatTask, 0, 1000);
+            } catch (SocketTimeoutException e) {
+                System.out.println("Pacote perdido");
+            } 
+
+        }
+
+        mean = mean / count;
+
+        // printar os valores RTT - Questão 1
+
+        System.out.println("skjdfnasjdfg");
+
+        System.out.printf("Minimum: %fms\n", minimum);
+        System.out.printf("Maximum: %fms\n", maximum);
+        System.out.printf("Média: %fms\n", mean);
     }
 
     /*
@@ -111,4 +96,3 @@ public class PingClient {
         System.out.println("Received from " + request.getAddress().getHostAddress() + ":" + line);
     }
 }
-
